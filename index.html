@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Jumper - Monetizado</title>
+    <script type='text/javascript' src="https://cdn.applixir.com/applixir.sdk3.0.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #70c5ce; font-family: 'Arial', sans-serif; display: flex; flex-direction: column; align-items: center; }
+        canvas { background: white; box-shadow: 0 0 20px rgba(0,0,0,0.2); cursor: none; }
+        #ui { position: absolute; top: 20px; text-align: center; pointer-events: none; width: 100%; }
+        .score { font-size: 30px; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        #menu-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.9); padding: 30px; border-radius: 15px; text-align: center; display: none; }
+        button { background: #ff4757; color: white; border: none; padding: 15px 25px; border-radius: 8px; cursor: pointer; font-size: 18px; margin: 10px; }
+        button.reward { background: #2ed573; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div class="score">Altura: <span id="currentScore">0</span>m</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="menu-over">
+        <h2 style="color: #333">Fim de Jogo!</h2>
+        <p style="color: #666">Você caiu nas nuvens.</p>
+        <button class="reward" onclick="assistirVideoReviver()">📺 Reviver (Vídeo)</button>
+        <br>
+        <button onclick="reiniciarJogo()">Recomeçar do Zero</button>
+    </div>
+
+    <div id="applixir_vanishing_div"></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('currentScore');
+        const menuOver = document.getElementById('menu-over');
+
+        canvas.width = 400;
+        canvas.height = 600;
+
+        let player, platforms, score, gameActive, cameraY;
+
+        // Configurações AppLixir
+        const adOptions = {
+            zoneId: 2050, // SUBSTITUA PELO SEU ID NO PAINEL APPLIXIR
+            adStatusCallback: function(status) {
+                if (status === "completed") {
+                    reviverJogador();
+                }
+            }
+        };
+
+        function init() {
+            player = { x: 200, y: 550, w: 30, h: 30, vy: 0, gravity: 0.4, jump: -12 };
+            platforms = [];
+            score = 0;
+            cameraY = 0;
+            gameActive = true;
+            menuOver.style.display = 'none';
+
+            for (let i = 0; i < 7; i++) {
+                platforms.push({ x: Math.random() * 330, y: i * 100, w: 70, h: 15 });
+            }
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            player.vy += player.gravity;
+            player.y += player.vy;
+
+            // Movimento do Mouse
+            canvas.onmousemove = (e) => {
+                let rect = canvas.getBoundingClientRect();
+                player.x = e.clientX - rect.left - player.w/2;
+            };
+
+            // Colisão com plataformas
+            if (player.vy > 0) {
+                platforms.forEach(p => {
+                    if (player.x < p.x + p.w && player.x + player.w > p.x &&
+                        player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.vy) {
+                        player.vy = player.jump;
+                    }
+                });
+            }
+
+            // Câmera e Score
+            if (player.y < canvas.height / 2) {
+                let diff = canvas.height / 2 - player.y;
+                player.y = canvas.height / 2;
+                score += Math.floor(diff);
+                scoreEl.innerText = score;
+                platforms.forEach(p => {
+                    p.y += diff;
+                    if (p.y > canvas.height) {
+                        p.y = 0;
+                        p.x = Math.random() * 330;
+                    }
+                });
+            }
+
+            if (player.y > canvas.height) gameOver();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Desenhar Jogador
+            ctx.fillStyle = '#ff4757';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            // Desenhar Plataformas (Nuvens)
+            ctx.fillStyle = '#dfe4ea';
+            platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        function gameOver() {
+            gameActive = false;
+            menuOver.style.display = 'block';
+        }
+
+        function assistirVideoReviver() {
+            // Chama o SDK do AppLixir
+            if(typeof invokeApplixirVideoUnit === "function") {
+                invokeApplixirVideoUnit(adOptions);
+            } else {
+                alert("Anúncio não carregado. Verifique o ID ou o AdBlock.");
+                reviverJogador(); // Apenas para teste local
+            }
+        }
+
+        function reviverJogador() {
+            player.y = 100;
+            player.vy = 0;
+            gameActive = true;
+            menuOver.style.display = 'none';
+            // Garante que haja uma plataforma embaixo
+            platforms[0] = { x: player.x - 20, y: player.y + 50, w: 70, h: 15 };
+        }
+
+        function reiniciarJogo() { init(); }
+
+        init();
+        draw();
+    </script>
+</body>
+</html>
